@@ -33,5 +33,4 @@ async def create(request):
 
         await conn.execute(db.package.insert(), data_to_insert)
         await conn.execute('commit')
-        await main(request.app, background=False)
         return web.Response(text='Succes!')
