@@ -41,3 +41,6 @@ venv.bak/
 
 # Config
 config/
+
+# helpers
+db_helper.py

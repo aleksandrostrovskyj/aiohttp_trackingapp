@@ -1,5 +1,8 @@
+import base64
 import aiohttp_jinja2
 from aiohttp import web
+from db import get_user_by_name
+from security import check_password_hash
 
 
 async def handle_404(request):
@@ -31,9 +34,25 @@ def create_error_middleware(overriders):
     return error_middleware
 
 
+@web.middleware
+async def auth_middleware(request, handler):
+    auth_init = request.headers.get('Authorization', '').replace('Basic ', '')
+    if not auth_init:
+        raise web.HTTPUnauthorized
+
+    user, password = base64.b64decode(auth_init).decode().split(':')
+    async with request.app['db'].acquire() as conn:
+        current_user = await get_user_by_name(conn, user)
+    if not current_user or not check_password_hash(password, current_user[3]):
+        raise web.HTTPUnauthorized
+
+    return await handler(request)
+
+
 def setup_middlewares(app):
     error_middleware = create_error_middleware({
         404: handle_404,
         500: handle_500
     })
     app.middlewares.append(error_middleware)
+    app.middlewares.append(auth_middleware)

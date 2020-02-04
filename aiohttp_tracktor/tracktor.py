@@ -160,7 +160,7 @@ async def main(app, background=True):
                 await conn.execute('commit')
 
         if background:
-            await asyncio.sleep(2400)
+            await asyncio.sleep(3600)
             continue
         else:
             break

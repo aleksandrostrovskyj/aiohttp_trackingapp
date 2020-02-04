@@ -1,22 +1,17 @@
 import db
 from aiohttp import web
-from serializers import serialize
 from tracktor import main
 
 
 async def index(request):
     async with request.app['db'].acquire() as conn:
-        cursor = await conn.execute(db.package.select())
-        records = await cursor.fetchall()
-        packages = [dict(p) for p in records]
-        result = [serialize(each) for each in packages]
+        result = await db.list_packages(conn)
         return web.json_response(result)
 
 
 async def create(request):
     async with request.app['db'].acquire() as conn:
         data = await request.json()
-
         try:
             data_to_insert = [
                 {
@@ -31,6 +26,11 @@ async def create(request):
         except KeyError as e:
             raise web.HTTPBadRequest(text='Bad Request!') from e
 
-        await conn.execute(db.package.insert(), data_to_insert)
-        await conn.execute('commit')
+        await db.create_package(conn, data_to_insert)
         return web.Response(text='Succes!')
+
+
+async def run_tracktor(request):
+    await main(request.app, background=False)
+    location = request.app.router['index'].url_for()
+    raise web.HTTPFound(location=location)
