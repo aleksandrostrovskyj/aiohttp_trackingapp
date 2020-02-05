@@ -2,12 +2,11 @@ import io
 import json
 import asyncio
 import aiohttp
-from db import package
+from db import package, data_for_tracktor, update_package
 from utils import Services
 from settings import config
 from datetime import datetime
 import xml.etree.ElementTree as ET
-from sqlalchemy.sql.expression import select
 
 
 class UpsTracktor:
@@ -17,20 +16,22 @@ class UpsTracktor:
     def __init__(self):
         self.url = 'https://www.ups.com/track/api/Track/GetStatus?loc=en_US'
         self.body = {
-            'Locale': 'en_US',
-            'Requester': 'wt/trackdetails'
+            'Locale': 'en_US'
         }
         self.headers = {
             'accept': "application/json, text/plain, */*",
             'content-type': "application/json",
+            'user-agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36"
         }
 
     @staticmethod
     def prepare_result(response: json):
+
         return [
             (
                 package['trackingNumber'],
-                package['packageStatus'],
+                package['trackSummaryView']['packageStatus'],
+                f'{package["trackSummaryView"]["packageStatusDateWithYear"]}, {package["trackSummaryView"]["packageStatusTime"]}',
                 datetime.now()
             )
             for package in response['trackDetails']
@@ -75,7 +76,7 @@ class UspsTracktor:
         :return: xml string
         """
         builder = ET.TreeBuilder()
-        builder.start('TrackRequest', {'USERID': self.user_id})    # start root node
+        builder.start('TrackFieldRequest', {'USERID': self.user_id})    # start root node
 
         for tracking_number in tracking_numbers:              # add node with each tracking number
             builder.start('TrackID', {'ID': tracking_number})
@@ -96,7 +97,8 @@ class UspsTracktor:
         return [
             (
                 package.attrib['ID'],
-                package.find('./TrackSummary').text,
+                package.find('./TrackSummary/Event').text,
+                f'{package.find("./TrackSummary/EventDate").text}, {package.find("./TrackSummary/EventTime").text}',
                 datetime.now()
             )
             for package in root
@@ -121,17 +123,10 @@ class UspsTracktor:
 async def main(app, background=True):
     ups = UpsTracktor()
     usps = UspsTracktor(config['usps']['userid'])
+
     while True:
         async with app['db'].acquire() as conn:
-            cursor = await conn.execute(
-                select(
-                    [
-                        package.c.tracking_number,
-                        package.c.service_name
-                    ]
-                )
-            )
-            records = await cursor.fetchall()
+            records = await data_for_tracktor(conn)
 
         ups_trackings = [each[0] for each in records if each[1] == Services.UPS]
         usps_trackings = [each[0] for each in records if each[1] == Services.USPS]
@@ -146,18 +141,7 @@ async def main(app, background=True):
 
         async with app['db'].acquire() as conn:
             for each in clear_data:
-                await conn.execute(
-
-                    package.update(
-                    ).where(
-                        package.c.tracking_number == each[0]
-                    ).values(
-                        status_text=each[1],
-                        status_date=each[2]
-                    )
-
-                )
-                await conn.execute('commit')
+                await update_package(conn, each)
 
         if background:
             await asyncio.sleep(3600)
