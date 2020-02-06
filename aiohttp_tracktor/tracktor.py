@@ -120,6 +120,10 @@ class UspsTracktor:
                 return self.prepare_result(await response.text())
 
 
+def divide(iterable, n):
+    return [iterable[i * n:(i + 1) * n] for i in range((len(iterable) + n - 1) // n )]
+
+
 async def main(app, background=True):
     ups = UpsTracktor()
     usps = UspsTracktor(config['usps']['userid'])
@@ -128,12 +132,19 @@ async def main(app, background=True):
         async with app['db'].acquire() as conn:
             records = await data_for_tracktor(conn)
 
+        tasks = []
         ups_trackings = [each[0] for each in records if each[1] == Services.UPS]
         usps_trackings = [each[0] for each in records if each[1] == Services.USPS]
 
-        ups_task = asyncio.create_task(ups.fetch_data(ups_trackings))
-        usps_task = asyncio.create_task(usps.fetch_data(usps_trackings))
-        data = await asyncio.gather(ups_task, usps_task)
+        for each in divide(ups_trackings, 15):
+            ups_task = asyncio.create_task(ups.fetch_data(each))
+            tasks.append(ups_task)
+
+        for each in divide(usps_trackings, 15):
+            usps_task = asyncio.create_task(usps.fetch_data(each))
+            tasks.append(usps_task)
+
+        data = await asyncio.gather(*tasks)
 
         clear_data = []
         for each in data:

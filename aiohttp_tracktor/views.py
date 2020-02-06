@@ -29,6 +29,9 @@ async def create(request):
         except KeyError as e:
             raise web.HTTPBadRequest(text='Bad Request!') from e
 
+        # Remove duplicates element
+        [data_to_insert.remove(each) for each in data_to_insert if data_to_insert.count(each) > 1]
+
         if not data_to_insert:
             raise web.HTTPNoContent()
 
