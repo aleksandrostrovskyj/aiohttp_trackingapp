@@ -26,16 +26,26 @@ class UpsTracktor:
 
     @staticmethod
     def prepare_result(response: json):
-
-        return [
-            (
-                package['trackingNumber'],
-                package['trackSummaryView']['packageStatus'],
-                f'{package["trackSummaryView"]["packageStatusDateWithYear"]}, {package["trackSummaryView"]["packageStatusTime"]}',
-                datetime.now()
-            )
-            for package in response['trackDetails']
-        ]
+        if len(response['trackDetails']) > 1:
+            return [
+                (
+                    package['trackingNumber'],
+                    package['trackSummaryView']['packageStatus'],
+                    f'{package["trackSummaryView"]["packageStatusDateWithYear"]}, ' 
+                    f'{package["trackSummaryView"]["packageStatusTime"]}',
+                    datetime.now()
+                )
+                for package in response['trackDetails']
+            ]
+        else:
+            package = response['trackDetails'][0]
+            progress_bar = package['shipmentProgressActivities']
+            return[(
+                    package['trackingNumber'],
+                    package['packageStatus'],
+                    f'{progress_bar[1]["date"]}, {progress_bar[1]["time"]}',
+                    datetime.now()
+                )]
 
     async def fetch_data(self, tracking_numbers: list):
         """
@@ -48,6 +58,7 @@ class UpsTracktor:
 
         async with aiohttp.ClientSession() as session:
             self.body.update(dict(TrackingNumber=tracking_numbers))
+
             async with session.post(url=self.url, data=str(self.body), headers=self.headers) as response:
                 assert response.status == 200
                 data = await response.json()
@@ -98,7 +109,8 @@ class UspsTracktor:
             (
                 package.attrib['ID'],
                 package.find('./TrackSummary/Event').text,
-                f'{package.find("./TrackSummary/EventDate").text}, {package.find("./TrackSummary/EventTime").text}',
+                f'{package.find("./TrackSummary/EventDate").text}, '
+                f'{package.find("./TrackSummary/EventTime").text}',
                 datetime.now()
             )
             for package in root
@@ -121,7 +133,7 @@ class UspsTracktor:
 
 
 def divide(iterable, n):
-    return [iterable[i * n:(i + 1) * n] for i in range((len(iterable) + n - 1) // n )]
+    return [iterable[i * n:(i + 1) * n] for i in range((len(iterable) + n - 1) // n)]
 
 
 async def main(app, background=True):

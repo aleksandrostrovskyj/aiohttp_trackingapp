@@ -36,6 +36,10 @@ def create_error_middleware(overriders):
 
 @web.middleware
 async def auth_middleware(request, handler):
+
+    if '/api/' not in request.rel_url.path:
+        return await handler(request)
+
     auth_init = request.headers.get('Authorization', '').replace('Basic ', '')
     if not auth_init:
         raise web.HTTPUnauthorized

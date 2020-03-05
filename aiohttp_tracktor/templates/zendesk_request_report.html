@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<body class="text-center">
+    {% if error %}<div class="error" style="color: red;"><strong>Error:</strong> {{ error }}</div>{% endif %}
+    <h1>ZENDESK REPORT</h1>
+    <form class="form-signin" action="/zendesk/report" method="post">
+        <div class="form-group row">
+          <label for="date-from" class="col-2 col-form-label">From</label>
+          <div class="col-10">
+            <input class="form-control" type="date" value="" id="date-from" name="date_from">
+          </div>
+        </div>
+        <div class="form-group row">
+          <label for="date-to" class="col-2 col-form-label">To</label>
+          <div class="col-10">
+            <input class="form-control" type="date" value="" id="date-to" name="date_to">
+          </div>
+        </div>
+      <button class="btn btn-lg btn-primary btn-block" type="submit" value="login">Request report</button>
+    </form>
+  </body>
+
+{% endblock %}

@@ -34,13 +34,7 @@ package = Table(
 
 async def init_pg(app):
     conf = app['config']['mysql']
-    engine = await aiomysql.sa.create_engine(
-        db=conf['database'],
-        user=conf['user'],
-        password=conf['password'],
-        host=conf['host'],
-        port=conf['port']
-    )
+    engine = await aiomysql.sa.create_engine(**conf)
     app['db'] = engine
 
 
@@ -51,6 +45,11 @@ async def close_pg(app):
 
 async def get_user_by_name(conn, username):
     cursor = await conn.execute(users.select().where(users.c.username == username))
+    return await cursor.fetchone()
+
+
+async def get_user_by_id(conn, user_id):
+    cursor = await conn.execute(users.select().where(users.c.id == user_id))
     return await cursor.fetchone()
 
 

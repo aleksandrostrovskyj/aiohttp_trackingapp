@@ -1,7 +1,7 @@
 from enum import Enum
-import asyncio
-import aiohttp
-from time import time
+import db
+from aiohttp import web
+from aiohttp_session import get_session
 
 
 class Services(Enum):
@@ -9,38 +9,21 @@ class Services(Enum):
     USPS = 'USPS'
 
 
-def write_image(data):
-    filename = f'file-{int(time() * 1000)}.jpeg'
-    with open(filename, 'wb') as f:
-        f.write(data)
+def login_required(func):
+    async def wrapper(request, *args, **kwargs):
+        app = request.app
+        router = app.router
 
+        session = await get_session(request)
+        if 'user_id' not in session:
+            return web.HTTPFound(router['login'].url_for())
 
-async def fetch_content(url, session):
-    async with session.get(url, allow_redirects=True) as response:
-        data = await response.read()
-        write_image(data)
+        user_id = session['user_id']
+        async with request.app['db'].acquire() as conn:
+            user = await db.get_user_by_id(conn, user_id)
 
+        app['user'] = user
 
-async def main2():
-    print('Start back task')
-    url = 'https://loremflickr.com/320/240'
-    tasks = []
-    while True:
-        async with aiohttp.ClientSession() as session:
-            for i in range(2):
-                task = asyncio.create_task(fetch_content(url, session))
-                tasks.append(task)
+        return await func(request, *args, **kwargs)
 
-            await asyncio.gather(*tasks)
-        print('File has been downloaded, sleep for 2 seconds')
-        await asyncio.sleep(2)
-
-
-async def start_background_tasks(app):
-    app['cats_downloaded'] = asyncio.create_task(main2())
-
-
-async def stop_background_tasks(app):
-    app['cats_downloaded'].cancel()
-    await app['cats_downloaded']
-
+    return wrapper

@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<body class="text-center">
+    {% if error %}<div class="error" style="color: red;"><strong>Error:</strong> {{ error }}</div>{% endif %}
+    <form class="form-signin" action="/login" method="post">
+        <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+          <h1 class="h3 mb-3 font-weight-normal">Please sign in</h1>
+          <label for="username" class="sr-only">User</label>
+          <input type="user" id="username" name="username" class="form-control" placeholder="User" required autofocus>
+          <label for="password" class="sr-only">Password</label>
+          <input type="password" id="password" name="password" class="form-control" placeholder="Password" required>
+          <div class="checkbox mb-3">
+      </div>
+      <button class="btn btn-lg btn-primary btn-block" type="submit" value="login">Sign in</button>
+    </form>
+  </body>
+
+{% endblock %}
